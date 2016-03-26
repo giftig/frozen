@@ -1,0 +1,8 @@
+*.class
+*.jar
+*.pyc
+
+*.swp
+*.swo
+
+/build/
