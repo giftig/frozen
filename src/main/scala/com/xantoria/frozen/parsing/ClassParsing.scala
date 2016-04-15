@@ -6,13 +6,14 @@ import com.xantoria.frozen.utils.SplitBlocks
 
 trait ClassParsing {
   final val PACKAGE_PATTERN = """^here I stand: ([A-Za-z_][A-Za-z0-9_\.]*)$""".r
-  final val IMPORT_PATTERN = """^([A-Za-z0-9_\.]+) is an open door!""".r
-  final val CLASS_HEAD_PATTERN = """^do you wanna build an? ([A-Za-z_][A-Za-z0-9_]*)\?""".r
+  final val IMPORT_PATTERN = """^([A-Za-z0-9_\.]+) is an open door!$""".r
+  final val CLASS_HEAD_PATTERN = """^do you wanna build an? ([A-Za-z_][A-Za-z0-9_]*)\?$""".r
   final val METHOD_HEAD_PATTERN = (
-    """^or ride an? ([A-Za-z_][A-Za-z0-9_]*) around the halls \((.+)\)\?""".r
+    """^or ride an? ([A-Za-z_][A-Za-z0-9_]*) around the halls \((.+)\)\?$""".r
   )
-  final val IF_PATTERN = """^if \(\) anna$""".r
+  final val IF_PATTERN = """^if \((.+)\) anna$""".r
   final val ELSE_PATTERN = """^elsa$""".r
+  final val PYTHON_PATTERN = """^s?he's a bit of a fixer-upper$""".r
 
   def parseModule(s: String): Package = parseModule(s.split("\n").toList)
 
@@ -72,7 +73,15 @@ trait ClassParsing {
     if (lines.length > 1) {
       throw new ParserException("Unexpected block in import: '${lines.tail.mkString}'")
     }
-    s"import $importName"
+
+    if (importName contains ".") {
+      val splitImport = importName.split("\\.")
+      val initial = splitImport.dropRight(1).mkString(".")
+      val imported = splitImport.last
+      s"from $initial import $imported"
+    } else {
+      s"import $importName"
+    }
   }
 
   def parseClass(lines: List[String]): List[String] = {
@@ -117,14 +126,20 @@ trait ClassParsing {
 
   def parseStatement(lines: List[String]): List[String] = {
     lines.head match {
-      case IF_PATTERN(m) => parseIf(lines)
-
-      // TODO: Treat it as raw python for now but in future require a wrapper for that
-      // case _ => throw new ParserException(s"Unexpected symbol: '${statement.split(" ").head}'")
-      case _ => lines
+      case PYTHON_PATTERN() => parseWrappedPython(lines)
+      case IF_PATTERN(cond) => parseIf(lines)
+      case _ => throw new ParserException(s"Unparseable statement: ${lines.head}")
     }
   }
 
   // TODO
   def parseIf(lines: List[String]): List[String] = lines
+
+  /**
+   * Just strip the first line, which should be "he's a bit of a fixer-upper", and return the rest
+   * unindented one level, which should be raw python.
+   */
+  def parseWrappedPython(lines: List[String]): List[String] = ShiftIndent(
+    lines.tail, -1, indentType = "  "
+  )
 }

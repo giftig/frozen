@@ -1,8 +1,9 @@
 here I stand: helloworld.main
-uuid is an open door!
+uuid.uuid4 is an open door!
 
 do you wanna build a HelloWorldApplication?
   or ride a main around the halls (args)?
-    print 'Hello', args[0], uuid.uuid4()
+    he's a bit of a fixer-upper
+      print 'Hello', args[0], uuid4()
 
 the cold never bothered me anyway
