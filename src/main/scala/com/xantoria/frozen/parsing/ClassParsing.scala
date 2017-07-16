@@ -1,145 +1,29 @@
 package com.xantoria.frozen.parsing
 
-import com.xantoria.frozen.struct.Package
-import com.xantoria.frozen.utils.ShiftIndent
-import com.xantoria.frozen.utils.SplitBlocks
+import com.xantoria.frozen.parsing.block._
+import com.xantoria.frozen.struct.{Package => PackageDef}
 
+// FIXME: Rename
 trait ClassParsing {
-  final val PACKAGE_PATTERN = """^here I stand: ([A-Za-z_][A-Za-z0-9_\.]*)$""".r
-  final val IMPORT_PATTERN = """^([A-Za-z0-9_\.]+) is an open door!$""".r
-  final val CLASS_HEAD_PATTERN = """^do you wanna build an? ([A-Za-z_][A-Za-z0-9_]*)\?$""".r
-  final val METHOD_HEAD_PATTERN = (
-    """^or ride an? ([A-Za-z_][A-Za-z0-9_]*) around the halls \((.+)\)\?$""".r
-  )
-  final val IF_PATTERN = """^if \((.+)\) anna$""".r
-  final val ELSE_PATTERN = """^elsa$""".r
-  final val PYTHON_PATTERN = """^s?he's a bit of a fixer-upper$""".r
+  def parseModule(s: String): PackageDef = parseModule(s.split("\n").toList)
 
-  def parseModule(s: String): Package = parseModule(s.split("\n").toList)
+  def parseModule(lines: Seq[String]): PackageDef = {
+    implicit val indentType = IndentType("  ")  // FIXME
 
-  def parseModule(lines: List[String]): Package = {
-    val spaceStripped = lines.filter { !_.trim.isEmpty }
-    val blocks = SplitBlocks(spaceStripped, "  ")
+    val spaceStripped = lines filterNot { _.trim.isEmpty }
+    val blocks = SplitBlocks(spaceStripped) map { Block(_) }
 
-    val packageName = parsePackageDeclaration(blocks.head)
-    val mainContent = blocks.tail.dropRight(1).map { parseModuleBlock(_) }.flatten
-    val ending = blocks.last foreach {
-      s: String => if (s != "the cold never bothered me anyway") {
-        throw new ParserException("Expected 'the cold never bothered me anyway', found EOF")
-      }
-    }
-
-    new Package(packageName, mainContent)
-  }
-
-  def parseModuleBlock(lines: List[String]): List[String] = {
-    lines.head match {
-      case IMPORT_PATTERN(m) => List(parseImportStatement(lines))
-      case CLASS_HEAD_PATTERN(m) => parseClass(lines)
-      case _ => throw new ParserException(
-        s"Expected class declaration or import, not '${lines.head}'"
+    val packageName = blocks.head match {
+      case p: Package => p.name
+      case b: Block => throw new ParserException(
+        s"Expected package definition, found '${b.rawResult.head}'"
       )
     }
+    if (!blocks.last.isInstanceOf[EOF]) {
+      throw new ParserException(s"Expected '${EOF.Phrase}', found EOF")
+    }
+
+    val rawContent = blocks.map { _.rawResult }.flatten
+    new PackageDef(packageName, rawContent)
   }
-
-  def parsePackageDeclaration(lines: List[String]): String = {
-    val firstLine = lines.head
-
-    val packageName: String = {
-      PACKAGE_PATTERN.findFirstMatchIn(firstLine) map {
-        _.group(1)
-      } getOrElse {
-        throw new ParserException(s"Expected 'here I stand' clause, found '$firstLine'")
-      }
-    }
-    if (lines.length > 1) {
-      throw new ParserException(
-        "Unexpected block in package declaration: '${lines.tail.mkString}'"
-      )
-    }
-    packageName
-  }
-
-  def parseImportStatement(lines: List[String]): String = {
-    val importName: String = {
-      IMPORT_PATTERN.findFirstMatchIn(lines.head) map {
-        _.group(1)
-      } getOrElse {
-        throw new ParserException(
-          s"Expected '[packagename] is an open door!', found '${lines.head}'"
-        )
-      }
-    }
-    if (lines.length > 1) {
-      throw new ParserException("Unexpected block in import: '${lines.tail.mkString}'")
-    }
-
-    if (importName contains ".") {
-      val splitImport = importName.split("\\.")
-      val initial = splitImport.dropRight(1).mkString(".")
-      val imported = splitImport.last
-      s"from $initial import $imported"
-    } else {
-      s"import $importName"
-    }
-  }
-
-  def parseClass(lines: List[String]): List[String] = {
-    val className: String = {
-      CLASS_HEAD_PATTERN.findFirstMatchIn(lines.head) map {
-        _.group(1)
-      } getOrElse {
-        throw new ParserException(
-          s"Expected 'do you wanna build a [classname]?', found '${lines.head}'"
-        )
-      }
-    }
-
-    val classBody = ShiftIndent(lines.tail, -1, indentType = "  ")
-    val blocks = SplitBlocks(classBody, indentType = "  ")
-
-    val parsedBlocks = blocks.map { parseMethod(_) }.flatten
-
-    s"class $className:" +: ShiftIndent(parsedBlocks, 1, indentType = "  ")
-  }
-
-  def parseMethod(lines: List[String]): List[String] = {
-    val (methodName: String, args: String) = {
-      METHOD_HEAD_PATTERN.findFirstMatchIn(lines.head) map {
-        m => (m.group(1), m.group(2))
-      } getOrElse {
-        throw new ParserException(
-          s"Expected 'or ride a [methodname] around the halls (args)?', found '${lines.head}'"
-        )
-      }
-    }
-
-    val argNames = args.split(",").map { _.trim }
-    val methodBody = ShiftIndent(lines.tail, -1, indentType = "  ")
-    val blocks = SplitBlocks(methodBody, indentType = "  ")
-    val parsedBlocks = blocks.map { parseStatement(_) }.flatten
-
-    s"def $methodName(${argNames.mkString(", ")}):" :: ShiftIndent(
-      parsedBlocks, 1, indentType = "  "
-    )
-  }
-
-  def parseStatement(lines: List[String]): List[String] = {
-    lines.head match {
-      case PYTHON_PATTERN() => parseWrappedPython(lines)
-      case IF_PATTERN(cond) => parseIf(lines)
-      case _ => throw new ParserException(s"Unparseable statement: ${lines.head}")
-    }
-  }
-
-  // TODO
-  def parseIf(lines: List[String]): List[String] = lines
-
-  /**
-   * Just strip the first line, which should be "he's a bit of a fixer-upper", and return the rest
-   * unindented one level, which should be raw python.
-   */
-  def parseWrappedPython(lines: List[String]): List[String] = ShiftIndent(
-    lines.tail, -1, indentType = "  "
-  )
 }

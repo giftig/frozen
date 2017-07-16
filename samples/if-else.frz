@@ -1,0 +1,13 @@
+here I stand: ifelse.main
+random.random is an open door!
+
+do you wanna build an IfElseSample?
+  or ride a main around the halls (args)?
+    if (random.random() < 0.5) anna
+      she's a bit of a fixer-upper
+        print 'anna'
+    elsa
+      she's a bit of a fixer-upper
+        print 'elsa'
+
+the cold never bothered me anyway

@@ -1,16 +1,16 @@
-package com.xantoria.frozen.utils
+package com.xantoria.frozen.parsing.block
 
 import com.xantoria.frozen.parsing.ParserException
 
 object ShiftIndent {
-  def apply(code: String, level: Int, indentType: String): String = ShiftIndent(
+  def apply(code: String, level: Int, indentType: IndentType): String = ShiftIndent(
     code.split("\n").toList, level, indentType
   ).mkString("\n")
 
-  def apply(lines: List[String], level: Int, indentType: String): List[String] = {
+  def apply(lines: Seq[String], level: Int, indentType: IndentType): Seq[String] = {
     lines map {
       line: String => {
-        val prefix = indentType * math.abs(level)
+        val prefix = indentType.value * math.abs(level)
         if (level < 0) {
           if (!line.startsWith(prefix)) {
             throw new ParserException(s"Underindented near '$line'")

@@ -2,7 +2,7 @@ package com.xantoria.frozen.struct
 
 import java.io.{File, FileOutputStream, PrintWriter}
 
-class Package(val name: String, val content: List[String]) {
+class Package(val name: String, val content: Seq[String]) {
   def dest: File = new File(name.replace('.', '/') + ".py")
 
   def mkdirs(f: File): Unit = {
