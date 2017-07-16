@@ -2,7 +2,7 @@ package com.xantoria.frozen.parsing.block
 
 import com.xantoria.frozen.parsing.ParserException
 
-class Class(name: String, contents: Seq[UnparsedBlock], indentType: IndentType) extends Block {
+class Class(val name: String, contents: Seq[UnparsedBlock], indentType: IndentType) extends Block {
   val children: Seq[Block] = {
     val blocks = contents map { Block(_)(indentType) }
     blocks foreach {

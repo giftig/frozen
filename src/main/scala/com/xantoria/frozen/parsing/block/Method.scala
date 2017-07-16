@@ -3,8 +3,8 @@ package com.xantoria.frozen.parsing.block
 import com.xantoria.frozen.parsing.ParserException
 
 class Method(
-  name: String,
-  args: Seq[String],
+  val name: String,
+  val args: Seq[String],
   contents: Seq[UnparsedBlock],
   indentType: IndentType
 ) extends Block {
@@ -12,7 +12,8 @@ class Method(
   val children: Seq[Block] = contents map { Block(_)(indentType) }
 
   val rawResult: Seq[String] = {
-    val head = s"def $name(${args.mkString(", ")}):"
+    val adjustedArgs = "self" +: args
+    val head = s"def $name(${adjustedArgs.mkString(", ")}):"
     val body = children.map { _.rawResult }.flatten
     head +: ShiftIndent(body, 1, IndentType.default)
   }
